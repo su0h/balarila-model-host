@@ -1,0 +1,6 @@
+### balarila_api
+**/.venv
+**/*.sqlite3
+**/__pycache__
+**/.pytest_cache/
+balarila_model
