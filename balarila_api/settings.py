@@ -40,7 +40,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # Third-party apps
     'graphene_django',
-    'django_celery_results',
     'rest_framework',
     # Local apps
     'balarila_app'
@@ -130,20 +129,16 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Graphene settings
 GRAPHENE = {
-    'SCHEMA': 'balarila_app.schema.schema',  # Path to your GraphQL schema
+    'SCHEMA': 'balarila_app.schema.schema', 
     'MIDDLEWARE': [
         'graphene_django.debug.DjangoDebugMiddleware',
     ],
 }
 
-# Celery settings
-CELERY_BROKER_URL = 'kafka://localhost:9092'  # Replace with your Kafka broker URL
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERYT_TASK_TRACK_STARTED = True
-CELERY_RESULT_BACKEND = 'django-db'  # Using Django database to store results
-CELERY_TASK_RESULT_EXPIRES = 3600  # Results expire after 1 hour
+# Kafka settings
+KAFKA_BOOTSTRAP_SERVERS = ['localhost:9092']
+KAFKA_INPUT_TOPIC = 'grammar-check'
+KAFKA_RESULT_TOPIC = 'grammar-check-result'
 
 # Balarila settings
 BALARILA_MODEL_DIR = os.path.join(BASE_DIR, 'balarila_model', 'models', 'output_models')

@@ -1,11 +1,15 @@
+import sys
 from django.apps import AppConfig
-
 
 class BalarilaAppConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'balarila_app'
 
     def ready(self):
+        # Only load the GEC model when running the dev server
+        if 'runserver' or 'kafka_consumer' not in sys.argv:
+            return 
+        
         # Import the model loading function here to avoid circular imports
         # as models might depend on app registry.
         from .utils import get_gec_model

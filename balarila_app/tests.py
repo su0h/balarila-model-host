@@ -7,7 +7,6 @@ from django.test import TestCase
 from graphene_django.utils.testing import GraphQLTestCase
 from balarila_app.schema import schema
 from unittest.mock import patch, MagicMock
-from celery import states
 import json
 
 # --- Test for Core Utility Functions ---
@@ -92,88 +91,3 @@ class CorrectorGraphQLTest(GraphQLTestCase):
         self.assertEqual(content['data']['checkGrammar']['tags'], ["R:Wrong->Correct"])
         self.assertEqual(content['data']['checkGrammar']['correctionsCount'], 1)
         mock_check_grammar.assert_called_once_with("Wrong input.")
-
-    # Asynchronous Mutation Test
-    @patch('corrector.tasks.check_grammar_async.delay')
-    def test_initiate_grammar_check_async_mutation(self, mock_delay):
-        # Mock the Celery task's delay method to return a mock AsyncResult
-        mock_task_id = "test-task-id-123"
-        mock_delay.return_value = MagicMock(id=mock_task_id)
-
-        mutation = """
-            mutation {
-                initiateGrammarCheckAsync(text: "Async test sentence.", correlationId: "corr-1") {
-                    taskId
-                }
-            }
-        """
-        response = self.query(mutation)
-
-        self.assertResponseNoErrors(response)
-        content = json.loads(response.content)
-
-        self.assertEqual(content['data']['initiateGrammarCheckAsync']['taskId'], mock_task_id)
-        mock_delay.assert_called_once_with("Async test sentence.", "corr-1")
-
-    # Asynchronous Result Polling Test (GraphQL)
-    @patch('celery.result.AsyncResult')
-    def test_get_async_task_result_query(self, MockAsyncResult):
-        # Mock the AsyncResult object that getAsyncTaskResult's resolver would use
-        mock_task_instance = MockAsyncResult.return_value
-        mock_task_instance.ready.return_value = True
-        mock_task_instance.status = states.SUCCESS
-        mock_task_instance.result = { # This is the dictionary that check_grammar_async returns
-            "original_text": "Async complete.",
-            "corrected_text": "Async completed.",
-            "tags": ["R:complete->completed"],
-            "corrections_count": 1
-        }
-
-        task_id = "some-mock-task-id"
-        query = f"""
-            query {{
-                getAsyncTaskResult(taskId: "{task_id}") {{
-                    status
-                    ready
-                    result
-                }}
-            }}
-        """
-        response = self.query(query)
-
-        self.assertResponseNoErrors(response)
-        content = json.loads(response.content)
-
-        self.assertEqual(content['data']['getAsyncTaskResult']['status'], states.SUCCESS)
-        self.assertTrue(content['data']['getAsyncTaskResult']['ready'])
-        # The result field is a JSON string, so we need to parse it
-        parsed_result = json.loads(content['data']['getAsyncTaskResult']['result'])
-        self.assertEqual(parsed_result['original_text'], "Async complete.")
-        self.assertEqual(parsed_result['corrected_text'], "Async completed.")
-        MockAsyncResult.assert_called_once_with(task_id)
-
-    # Asynchronous Result Polling Test (REST API)
-    @patch('celery.result.AsyncResult')
-    def test_get_async_task_result_rest_api(self, MockAsyncResult):
-        mock_task_instance = MockAsyncResult.return_value
-        mock_task_instance.ready.return_value = True
-        mock_task_instance.status = states.SUCCESS
-        mock_task_instance.result = {
-            "original_text": "REST test.",
-            "corrected_text": "REST fixed.",
-            "tags": ["R:test->fixed"],
-            "corrections_count": 1
-        }
-
-        task_id = "some-rest-task-id"
-        response = self.client.get(f'/api/corrector/async-result/{task_id}/')
-
-        self.assertEqual(response.status_code, 200)
-        content = json.loads(response.content)
-
-        self.assertEqual(content['task_id'], task_id)
-        self.assertEqual(content['status'], states.SUCCESS)
-        self.assertTrue(content['ready'])
-        self.assertEqual(content['result']['original_text'], "REST test.")
-        self.assertEqual(content['result']['corrected_text'], "REST fixed.")
-        MockAsyncResult.assert_called_once_with(task_id)
